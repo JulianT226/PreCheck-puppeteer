@@ -1,7 +1,6 @@
 const puppeteer = require('puppeteer');
 const readline = require('readline');
 
-// Function to prompt user for input
 const askQuestion = (query) => {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -22,16 +21,13 @@ const askQuestion = (query) => {
   });
   const page = await browser.newPage();
 
-  // Add event listener to handle dialogs
   page.on('dialog', async dialog => {
     console.log('Dialog detected:', dialog.message());
     await dialog.dismiss();
   });
 
-  // Navigate to the visa form website
   await page.goto('https://cova.mfa.gov.cn/qzCoCommonController.do?show&pageId=278VKVKrjVKVlrHVcVnVSVnririVYVbVSVcrHVaVmVSVPrkVYrHVSVYVPVPV8rHrIrkrIrkVarjV8VbVa&DataSource=2&locale=en_US'); 
 
-  // Wait for the region selection buttons to be present
   await page.waitForSelector('#NA');
 
   try {
@@ -80,12 +76,10 @@ const askQuestion = (query) => {
     
     let state = await askQuestion('Which state do you live in: ');
     
-    // Normalize the state input
     state = state.trim();
     
     let jurisdiction = getJurisdiction(state);
     
-    // Click the respective button based on the jurisdiction
     await page.evaluate((jurisdiction) => {
       const cityElements = document.querySelectorAll('#USA .city');
       for (const cityElement of cityElements) {
@@ -97,31 +91,30 @@ const askQuestion = (query) => {
     }, jurisdiction);
 
 
-    await page.waitForNavigation({ waitUntil: 'networkidle2' }); // Wait for the page to navigate
+    await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
-    // Ensure the button is fully visible and scroll into view
     await page.evaluate(() => {
         document.querySelector('.btn.btn-large.btn-primary').scrollIntoView();
     });
   
-    // Click the Start Application button and ensure it triggers the function
     await page.waitForSelector('.btn.btn-large.btn-primary');
     await page.click('.btn.btn-large.btn-primary');
 
 
     // PAGE 1
 
-    // Prompt for and fill last name
-    const lastName = await askQuestion('Enter your last name as it appears on your passport: ')
-    await page.type('#PassportFamilyName', lastName)
+    console.log('Enter your name as it appears on your passport:')
+    const firstName = await askQuestion('First name: ');
+    const middleName = await askQuestion('Middle name: ')
+    const firstMiddleName = firstName + " " + middleName
 
-    // Prompt for and fill in the first and middle name
-    const firstName = await askQuestion('Enter your first and middle name: ');
-    await page.type('#PassportFirstName', firstName);
+    await page.type('#PassportFirstName', firstMiddleName);
+
+    const lastName = await askQuestion('Last name: ')
+    await page.type('#PassportFamilyName', lastName)
 
     await page.click('#upApplyPersonalPhoto')
 
-    // Function to remove leading zeros from month and day
     const removeLeadingZero = (value) => {
       return value.replace(/^0+/, '');
     };
@@ -131,7 +124,6 @@ const askQuestion = (query) => {
     let dobDay = await askQuestion('(DD): ');
     const dobYear = await askQuestion('(YYYY): ');
 
-    // Remove leading zeros if present
     dobMonth = removeLeadingZero(dobMonth);
     dobDay = removeLeadingZero(dobDay);
 
@@ -140,10 +132,8 @@ const askQuestion = (query) => {
     await page.type('#Birthday-month', dobMonth);
     await page.type('#Birthday-day', dobDay);
 
-    // Prompt for and select the gender
     const gender = await askQuestion('Enter your gender (male/female): ');
 
-    // Select the appropriate gender checkbox
     if (gender.toLowerCase() === 'male') {
       await page.click('input[name="sex"][value="M"]');
     }
@@ -154,7 +144,6 @@ const askQuestion = (query) => {
       console.error('Invalid gender specified.');
     }
 
-    // Prompt for birth place (country, state, city)
     console.log('Enter your place of birth as shown on your passport')
     const countryBorn = await askQuestion('Country: ')
     const stateBorn = await askQuestion('State/Province: ')
@@ -164,10 +153,8 @@ const askQuestion = (query) => {
     await page.type('#foreign_birthplaceprovince', stateBorn);
     await page.type('#foreign_birthplacecity', cityBorn);
 
-    // Prompt for marital status
     const maritalstatus = await askQuestion('Enter your marital status: ')
 
-    // Select the marital status
     if (maritalstatus.toLowerCase() === 'married') {
       await page.click('input[name="maritalstatus"][value="706001"]');
     }
@@ -240,10 +227,9 @@ const askQuestion = (query) => {
       await page.click('input[name="isHaveFormerNationality"][value="0"]')
     }
 
-    // Prompt for marital status
+
     const passportType = await askQuestion('Enter the type of US passport you have: ')
 
-    // Select the marital status
     if (passportType.toLowerCase() === 'diplomatic') {
       await page.click('input[name="typeOfPassport"][value="707003"]');
 
@@ -281,10 +267,21 @@ const askQuestion = (query) => {
     const passportPlaceOfIssue = await askQuestion('Enter the state where your passport was issued: ')
     await page.type('#IssuePlace', passportPlaceOfIssue)
 
-
     let passExpMonth = await askQuestion('Enter the month your passport expires (MM): ');
     let passExpDay = await askQuestion('Enter the day your passport expires (DD): ');
     const passExpYear = await askQuestion('Enter the year your passport expires (YYYY): ');
+
+    const passExpDate = new Date(`${passExpYear}-${removeLeadingZero(passExpMonth)}-${removeLeadingZero(passExpDay)}`);
+    const currentDate = new Date();
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(currentDate.getMonth() + 6);
+    
+    if (passExpDate < currentDate) {
+        console.log('Your passport is expired. In order to receive a visa, you will first need to renew your passport.');
+    } 
+    else if (passExpDate < sixMonthsFromNow) {
+        console.log('Your passport expires in less than 6 months. In order to receive a visa, you will first need to renew your passport.');
+    } 
 
     passExpMonth = removeLeadingZero(passExpMonth);
     passExpDay = removeLeadingZero(passExpDay);
@@ -298,10 +295,8 @@ const askQuestion = (query) => {
 
     // PAGE 2
 
-    // Prompt for the type of visa
     const visaType = await askQuestion('Enter the type of visa (L/M/F/Q1/Q2/S1/S2/Z/X1/X2/J1/J2/C/G/D/R/Diplomatic/Official/Other): ');
 
-    // Map user input to the corresponding value in the dropdown
     const visaTypeMap = {
       'l': '709001',
       'm': '709002',
@@ -325,7 +320,6 @@ const askQuestion = (query) => {
       'other': '709020'
     };
 
-    // Select the visa type from the dropdown
     const visaTypeValue = visaTypeMap[visaType.toLowerCase()];
     if (visaTypeValue) {
       await page.select('#VisaType', visaTypeValue);
@@ -416,7 +410,6 @@ const askQuestion = (query) => {
       await page.type('#ApplyVisaValidity', visaValidity)
     
 
-    // Ensure the button is fully visible and scroll into view
     await page.evaluate(() => {
       document.querySelectorAll('.btn.btn-success').forEach(button => {
         if (button.textContent.includes('Save and Next')) {
@@ -425,7 +418,6 @@ const askQuestion = (query) => {
       });
     });
 
-    // Click the "Save and Next" button
     await page.evaluate(() => {
       document.querySelectorAll('.btn.btn-success').forEach(button => {
         if (button.textContent.includes('Save and Next')) {
@@ -545,10 +537,45 @@ const askQuestion = (query) => {
     await page.type('#AreaCode', phoneNumberCode)
     await page.type('#Email', email)
 
+    if (maritalstatus.toLowerCase() == 'married') {
+      console.log('Please provide the following information about your spouse: ')
+
+      let spouseNameFirst = await askQuestion('First name: ')
+      let spouseNameMiddle = await askQuestion('Middle name: ')
+      const spouseNameLast = await askQuestion('Last name: ')
+      const spouseNationality = await askQuestion('Nationality: ')
+      const spouseOccuptation = await askQuestion('Current occuptation: ')
+      const spouseNameFirstMiddle = spouseNameFirst + " " + spouseNameMiddle
+
+      await page.type('#SpouseFirstName1', spouseNameFirstMiddle)
+      await page.type('#SpouseFamilyName1', spouseNameLast)
+      await page.type('#SpouseNationalityCountry1', spouseNationality)
+      await page.type('#Spouse_Profession1', spouseOccuptation)
+
+      console.log('Date of Birth:')
+      let spouseDobMonth = await askQuestion('(MM): ')
+      let spouseDobDay = await askQuestion('(DD): ')
+      const spouseDobYear = await askQuestion('(YYYY): ')
+
+      spouseDobMonth = removeLeadingZero(spouseDobMonth)
+      spouseDobDay = removeLeadingZero(spouseDobDay)
+
+      await page.type('#Spousebirthdayyear1', spouseDobYear)
+      await page.type('#Spousebirthdaymonth1', spouseDobMonth)
+      await page.type('#Spousebirthdayday1', spouseDobDay)
+
+      const spouseBirthCountry = await askQuestion('Country of Birth: ')
+      const spouseBirthCity = await askQuestion('City of Birth: ')
+      const spouseAddress = await askQuestion('Current address: ')
+
+      await page.type('#SpouseCountryOfBirth1', spouseBirthCountry)
+      await page.type('#SpouseForeignCityOfBirth1', spouseBirthCity)
+      await page.type('#SpouseAddress1', spouseAddress)
+    }
     
     console.log('Please provide the following information about your father')
 
-    const fatherFirst = await askQuestion('First and middle names: ')
+    let fatherFirst = await askQuestion('First name: ')
 
     if (fatherFirst.toLowerCase() === "n/a") {
       await page.click('#bsy_Father')
@@ -557,10 +584,12 @@ const askQuestion = (query) => {
       await page.type('#desc_Father', noFatherSpecify)
     }
     else {
+      let fatherMiddle = await askQuestion('Middle name: ')
       const fatherLast = await askQuestion('Last name: ')
       const fatherNationality = await askQuestion('Nationality: ')
+      const fatherFirstMiddle = fatherFirst + " " + fatherMiddle
 
-      await page.type('#FatherFirstName1', fatherFirst)
+      await page.type('#FatherFirstName1', fatherFirstMiddle)
       await page.type('#FatherFamilyName1', fatherLast)
       await page.type('#FatherNationalityCountry1', fatherNationality)
 
@@ -626,7 +655,7 @@ const askQuestion = (query) => {
 
     console.log('Please provide the following information about your mother')
 
-    const motherFirst = await askQuestion('First and middle names: ')
+    let motherFirst = await askQuestion('First name: ')
 
     if (motherFirst.toLowerCase() === "n/a") {
       await page.click('#bsy_Mother')
@@ -635,10 +664,12 @@ const askQuestion = (query) => {
       await page.type('#desc_Mother', noMotherSpecify)
     }
     else {
+      let motherMiddle = await askQuestion('Middle name: ')
       const motherLast = await askQuestion('Last name: ')
       const motherNationality = await askQuestion('Nationality: ')
+      const motherFirstMiddle = motherFirst + " " + motherMiddle
 
-      await page.type('#MotherFirstName1', motherFirst)
+      await page.type('#MotherFirstName1', motherFirstMiddle)
       await page.type('#MotherFamilyName1', motherLast)
       await page.type('#MotherNationalityCountry1', motherNationality)
 
@@ -710,17 +741,19 @@ const askQuestion = (query) => {
       let addMoreChildren = true;
     
       while (addMoreChildren && childIndex <= 5) {
-        console.log(`Child ${jobIndex}`);
+        console.log(`Child ${childIndex}`);
         
-        const childFirst = await askQuestion('First and middle names: ')
+        let childFirst = await askQuestion('First Name: ')
+        let childMiddle = await askQuestion('Middle Name: ')
         const childLast = await askQuestion('Last name: ')
+        const childFirstMiddle = childFirst + " " + childMiddle
 
-        await page.type(`#ChildrenFirstName${jobIndex}`, childFirst)
-        await page.type(`#ChildrenFamilyName${jobIndex}`, childLast)
+        await page.type(`#ChildrenFirstName${childIndex}`, childFirstMiddle)
+        await page.type(`#ChildrenFamilyName${childIndex}`, childLast)
 
         const childNationality = await askQuestion('Nationality: ')
 
-        await page.type(`#ChildrenNationalityCountry${jobIndex}`, childNationality)
+        await page.type(`#ChildrenNationalityCountry${childIndex}`, childNationality)
 
         console.log('Date of Birth:')
         let childDobMonth = await askQuestion('(MM): ')
@@ -730,9 +763,9 @@ const askQuestion = (query) => {
         childDobMonth = removeLeadingZero(childDobMonth);
         childDobDay = removeLeadingZero(childDobDay);
 
-        await page.type(`#Childrenbirthdayyear${jobIndex}`, childDobYear)
-        await page.type(`#Childrenbirthdaymonth${jobIndex}`, childDobMonth)
-        await page.type(`#Childrenbirthdayday${jobIndex}`, childDobDay)
+        await page.type(`#Childrenbirthdayyear${childIndex}`, childDobYear)
+        await page.type(`#Childrenbirthdaymonth${childIndex}`, childDobMonth)
+        await page.type(`#Childrenbirthdayday${childIndex}`, childDobDay)
 
         if (childIndex < 5) {
           const addAnotherChild = await askQuestion('Do you have another child?: ');
@@ -972,21 +1005,23 @@ const askQuestion = (query) => {
 
       await page.type('#InvitingProvince', invitingState)
       await page.type('#InvitingCity', invitingCity)
-      await page.typeI('#InvitingCounty', invitingDistrict)
+      await page.type('#InvitingCounty', invitingDistrict)
       await page.type('#InvitingPostalCode', invitingPostCode)
     }
 
 
     // Emergency Contact
     console.log('Enter the following information regarding your emergency contact: ')
-    const emergencyNameFirst = await askQuestion('First and middle names: ')
+    let emergencyNameFirst = await askQuestion('First name: ')
+    let emergencyNameMiddle = await askQuestion('Middle name: ')
     const emergencyNameLast = await askQuestion('Last name: ')
     const emergencyRelationship = await askQuestion('Relationship to you: ')
     const emergencyPhoneNum = await askQuestion('Phone number: ')
     const emergencyPhoneNumCode = await askQuestion('Phone number country code: ')
     const emergencyEmail = await askQuestion('Email: ')
+    const emergencyNameFirstMiddle = emergencyNameFirst + " " + emergencyNameMiddle
 
-    await page.type('#EmergencyContactFirstName', emergencyNameFirst)
+    await page.type('#EmergencyContactFirstName', emergencyNameFirstMiddle)
     await page.type('#EmergencyContactFamilyName', emergencyNameLast)
     await page.type('#EmergencyRealationshipToYou', emergencyRelationship)
     await page.type('#Emergencytelbody', emergencyPhoneNum)
@@ -1030,6 +1065,7 @@ const askQuestion = (query) => {
       console.error('Invalid choice')
     }
 
+    // Accompanying Persons
     const accompanyingPeople = await askQuestion('Do you have any accompanying person(s) (using the same passport as you): ')
 
     if (accompanyingPeople.toLowerCase() === 'yes') {
@@ -1041,10 +1077,12 @@ const askQuestion = (query) => {
       while (addMoreAcc && accIndex <= 5) {
         console.log(`Accompanying Person ${accIndex}`);
         
-        const accNameFirst = await askQuestion('First and middle names: ')
+        let accNameFirst = await askQuestion('First name: ')
+        let accNameMiddle = await askQuestion('Middle name: ')
         const accNameLast = await askQuestion('Last name: ')
-        
-        await page.type('#PeerFirstName1', accNameFirst)
+        const accNameFirstMiddle = accNameFirst + " " + accNameMiddle
+
+        await page.type('#PeerFirstName1', accNameFirstMiddle)
         await page.type('#PeerFamilyName1', accNameLast)
 
         const accGender = await askQuestion('Gender (male/female): ')
@@ -1104,7 +1142,7 @@ const askQuestion = (query) => {
 
     const beenToChina = await askQuestion('Have you ever visited China?: ')
     if (beenToChina.toLowerCase() === 'yes') {
-      await page.click('input[name=IsArrivedChina"][value="1"]')
+      await page.click('input[name="IsArrivedChina"][value="1"]')
     }
     else {
       await page.click('input[name="IsArrivedChina"][value="0"]')
@@ -1184,7 +1222,7 @@ const askQuestion = (query) => {
 
     const countriesVisited = await askQuestion('Have you visited other countries/regions in the last 12 months?: ')
     if (countriesVisited.toLowerCase() === 'yes') {
-      await page.click('input[name="IsToOtherCountry"][value="1"]')
+      await page.click('input[name="IsHaveOtherVisa"][value="1"]')
 
       const countriesVisitedList = await askQuestion('Enter the countries/regions you have visited: ')
       await page.type('#OtherCountryInfo', countriesVisitedList)
@@ -1296,8 +1334,8 @@ const askQuestion = (query) => {
         await page.type(`#MilitarySpecialty${militaryIndex}`, militarySpeciality)
 
         console.log('Service from:')
-        const serviceFromYear = await askQuestion('(YYYY): ')
         let serviceFromMonth = await askQuestion('(MM): ')
+        const serviceFromYear = await askQuestion('(YYYY): ')
 
         serviceFromMonth = removeLeadingZero(serviceFromMonth)
 
@@ -1305,8 +1343,8 @@ const askQuestion = (query) => {
         await page.type(`#begindate-month${militaryIndex}`, serviceFromMonth)
 
         console.log('Service to:')
-        const serviceToYear = await askQuestion('(YYYY): ')
         let serviceToMonth = await askQuestion('(MM): ')
+        const serviceToYear = await askQuestion('(YYYY): ')
 
         serviceToMonth = removeLeadingZero(serviceToMonth)
 
@@ -1373,6 +1411,8 @@ const askQuestion = (query) => {
 
     // PAGE 9
 
+    await page.waitForSelector('#isToAgent');
+    
     await page.click('input[name="isAgent"][value="0"]')
 
     await page.evaluate(() => {
@@ -1386,10 +1426,9 @@ const askQuestion = (query) => {
 
 
 
-
-
-} catch (error) {
-    console.error('Error:', error);
+} 
+catch (error) {
+  console.error('Error:', error);
     
-  }
+}
 })();

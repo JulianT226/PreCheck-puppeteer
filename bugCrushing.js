@@ -29,7 +29,7 @@ const askQuestion = (query) => {
   });
 
   // Navigate to the visa form website
-  await page.goto('https://cova.mfa.gov.cn/qzCoCommonController.do?show&pageId=278VYVbrHVbVcrkVmVPVSrIrIVmVYrjVSVcVmVlVnVSriVnVcrjVSVYriVYVlVnrjrkVnV8VmVmriV8Vn&locale=en_US');
+  await page.goto('https://cova.mfa.gov.cn/qzCoCommonController.do?show&pageId=278VYrHVPr1VbVbVaVnVSVaVnVbVYr1VSVcrHVcriVSVKrirIrHVSV8VcVlVarIV8rjrir1VPVYVbVaVY&locale=en_US');
 
   const locationCity = await askQuestion('City: ')
   await page.type('#StayCity1', locationCity)
