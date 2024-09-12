@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "china.js",
   "scripts": {
-    "start": "node china.js"
+    "start": "node china.js",
+    "postinstall": "puppeteer install"
   },
   "author": "",
   "license": "ISC",
