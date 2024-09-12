@@ -267,7 +267,7 @@ const askQuestion = (query) => {
         await page.click('#PassportWizard_mostRecentPassport_BookDamaged')
 
         const passIssDate = await askQuestion('Most recent passport book issue date (MM/DD/YYYY): ')
-        await page.type('#PassportWizard$mostRecentPassport$BookIssueDate', passIssDate)
+        await page.type('#PassportWizard_mostRecentPassport_BookIssueDate', passIssDate)
 
         console.log('Your name as printed on your most recent book')
         const passNameFirst = await askQuestion('First and Middle Name: ')
@@ -411,8 +411,19 @@ const askQuestion = (query) => {
         await page.type('#PassportWizard_mostRecentPassport_firstNameOnCard', passNameFirst)
         await page.type('#PassportWizard_mostRecentPassport_lastNameOnCard', passNameLast)
 
-        const passNum = await askQuestion('Passport Book Number: ')
-        await page.type('#PassportWizard_mostRecentPassport_ExistingCardNumber', passNum)
+        const validatePassportNumber = (passNum) => {
+          const regex = /^[A-Z]\d{8}$|^\d{9}$/;
+          return regex.test(passNum);
+        };
+        
+        let passNum = await askQuestion('Passport Book Number: ');
+        
+        while (!validatePassportNumber(passNum)) {
+            console.log('Invalid passport number. It must be a letter followed by 8 digits or 9 digits.');
+            passNum = await askQuestion('Please enter a valid Passport Book Number: ');
+        }
+        
+        await page.type('#PassportWizard_mostRecentPassport_ExistingCardNumber', passNum);
       }
 
     }
